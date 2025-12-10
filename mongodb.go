@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"log"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -15,20 +16,25 @@ type MongoDBOrderRepo struct {
 }
 
 func NewMongoDBOrderRepo(mongoUri string, mongoDb string, mongoCollection string, mongoUser string, mongoPassword string) (*MongoDBOrderRepo, error) {
-	// create a context
-	ctx := context.Background()
+	// create a context with timeout for connection
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// create a mongo client
 	var clientOptions *options.ClientOptions
 	if mongoUser == "" && mongoPassword == "" {
-		clientOptions = options.Client().ApplyURI(mongoUri)
+		clientOptions = options.Client().ApplyURI(mongoUri).
+			SetServerSelectionTimeout(30 * time.Second).
+			SetConnectTimeout(10 * time.Second)
 	} else {
 		clientOptions = options.Client().ApplyURI(mongoUri).
 			SetAuth(options.Credential{
-				AuthSource: mongoDb,
+				AuthSource: "admin",
 				Username:   mongoUser,
 				Password:   mongoPassword,
 			}).
+			SetServerSelectionTimeout(30 * time.Second).
+			SetConnectTimeout(10 * time.Second).
 			SetTLSConfig(&tls.Config{InsecureSkipVerify: false})
 	}
 
